@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# MLflow
+mlruns/
+
+# Raw data
+data/raw/
+
+# Generated datasets
+data/processed/*.csv
+data/processed/*.parquet
+
+# OS
+.DS_Store
+Thumbs.db
