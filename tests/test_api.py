@@ -2,12 +2,42 @@
 # Tests unitaires de l'API FastAPI
 # ============================================================
 
+import pandas as pd
 from fastapi.testclient import TestClient
 
+from src.api import main
 from src.api.main import app
 
 
 client = TestClient(app)
+
+
+# ============================================================
+# Données simulées pour les tests
+# ============================================================
+
+def fake_load_production_data():
+    """Crée un mini DataFrame de test avec les features attendues par le modèle."""
+
+    expected_features = list(main.model.feature_name_)
+
+    fake_client = {
+        feature: 0
+        for feature in expected_features
+    }
+
+    fake_client["SK_ID_CURR"] = 309296
+    fake_client["TARGET"] = 0
+
+    fake_unknown = {
+        feature: 0
+        for feature in expected_features
+    }
+
+    fake_unknown["SK_ID_CURR"] = 123456
+    fake_unknown["TARGET"] = 1
+
+    return pd.DataFrame([fake_client, fake_unknown])
 
 
 # ============================================================
@@ -31,7 +61,13 @@ def test_health_check():
 # Test /predict
 # ============================================================
 
-def test_predict_existing_client():
+def test_predict_existing_client(monkeypatch):
+
+    monkeypatch.setattr(
+        main,
+        "load_production_data",
+        fake_load_production_data,
+    )
 
     response = client.post(
         "/predict",
@@ -56,7 +92,13 @@ def test_predict_existing_client():
 # Client inexistant
 # ============================================================
 
-def test_predict_unknown_client():
+def test_predict_unknown_client(monkeypatch):
+
+    monkeypatch.setattr(
+        main,
+        "load_production_data",
+        fake_load_production_data,
+    )
 
     response = client.post(
         "/predict",
@@ -98,18 +140,24 @@ def test_predict_missing_field():
 # Test /predict_batch
 # ============================================================
 
-def test_predict_batch():
+def test_predict_batch(monkeypatch):
+
+    monkeypatch.setattr(
+        main,
+        "load_production_data",
+        fake_load_production_data,
+    )
 
     response = client.post(
-        "/predict_batch?n_clients=200",
+        "/predict_batch?n_clients=2",
     )
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert data["n_predictions"] == 200
-    assert len(data["predictions"]) == 200
+    assert data["n_predictions"] == 2
+    assert len(data["predictions"]) == 2
 
     first_prediction = data["predictions"][0]
 
