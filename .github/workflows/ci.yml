@@ -1,0 +1,33 @@
+name: CI - Tests API
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installation de uv
+        run: pip install uv
+
+      - name: Installation des dépendances
+        run: uv sync --frozen
+
+      - name: Lancement des tests avec couverture
+        run: uv run pytest --cov=src --cov-report=term-missing -v
