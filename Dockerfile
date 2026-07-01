@@ -1,60 +1,47 @@
 # ============================================================
-# Python
+# Image officielle Python
 # ============================================================
 
-__pycache__/
-*.pyc
-*.pyo
+FROM python:3.11-slim
 
 # ============================================================
-# Virtual environments
+# Répertoire de travail
 # ============================================================
 
-.venv/
-venv/
+WORKDIR /app
 
 # ============================================================
-# Jupyter
+# Dépendances système nécessaires à LightGBM
 # ============================================================
 
-.ipynb_checkpoints/
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # ============================================================
-# IDE
+# Installation des dépendances Python
 # ============================================================
 
-.vscode/
+COPY pyproject.toml uv.lock ./
+
+RUN pip install uv
+
+RUN uv sync --frozen
 
 # ============================================================
-# MLflow
+# Copie du projet
 # ============================================================
 
-mlruns/
-mlartifacts/
+COPY . .
 
 # ============================================================
-# Raw data
+# Port exposé par FastAPI
 # ============================================================
 
-data/raw/
+EXPOSE 8000
 
 # ============================================================
-# Generated training datasets
+# Lancement de l'API
 # ============================================================
 
-data/processed/*.csv
-data/processed/*.parquet
-data/production/
-
-# ============================================================
-# Pytest
-# ============================================================
-
-.pytest_cache/
-
-# ============================================================
-# Operating system
-# ============================================================
-
-.DS_Store
-Thumbs.db
+CMD ["uv", "run", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

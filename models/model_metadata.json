@@ -2,6 +2,7 @@
     "model_name": "LightGBM final scoring model",
     "model_path": "C:\\AI_engineer_training\\Projets\\Projet_6_Initiez_vous_au_MLOps_partie_1\\home-credit-mlops\\models\\lightgbm_final.pkl",
     "threshold": 0.51,
+    "production_data_path": "C:\\AI_engineer_training\\Projets\\Projet_6_Initiez_vous_au_MLOps_partie_1\\home-credit-mlops\\data\\production\\production_test_clients.parquet",
     "features": [
         "CODE_GENDER",
         "FLAG_OWN_CAR",

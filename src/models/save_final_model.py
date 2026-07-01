@@ -1,10 +1,11 @@
 # ============================================================
 # Sauvegarde du modèle final LightGBM pour déploiement API
 #
-# Objectif :
+# Objectifs :
 # - réentraîner le modèle final validé
 # - sauvegarder le modèle avec joblib
-# - sauvegarder le seuil métier et les métadonnées
+# - sauvegarder les métadonnées du modèle
+# - sauvegarder le jeu de test comme données de production simulées
 # ============================================================
 
 from pathlib import Path
@@ -17,7 +18,14 @@ import joblib
 
 from lightgbm import LGBMClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, recall_score, f1_score, precision_score, accuracy_score, confusion_matrix
+from sklearn.metrics import (
+    roc_auc_score,
+    recall_score,
+    f1_score,
+    precision_score,
+    accuracy_score,
+    confusion_matrix,
+)
 
 
 # ============================================================
@@ -33,6 +41,12 @@ MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_PATH = MODEL_DIR / "lightgbm_final.pkl"
 METADATA_PATH = MODEL_DIR / "model_metadata.json"
+
+PRODUCTION_DIR = BASE_DIR / "data" / "production"
+PRODUCTION_DIR.mkdir(parents=True, exist_ok=True)
+
+PRODUCTION_PARQUET_PATH = PRODUCTION_DIR / "production_test_clients.parquet"
+PRODUCTION_CSV_PATH = PRODUCTION_DIR / "production_test_clients.csv"
 
 RANDOM_STATE = 42
 FINAL_THRESHOLD = 0.51
@@ -79,14 +93,11 @@ y = train_df["TARGET"].astype(int)
 
 X = train_df.drop(columns=["TARGET", "SK_ID_CURR"])
 
-# Conversion des colonnes object restantes en numérique
 for col in X.select_dtypes(include=["object"]).columns:
     X[col] = pd.to_numeric(X[col], errors="coerce")
 
-# Remplacement des valeurs infinies par NaN
 X = X.replace([np.inf, -np.inf], np.nan)
 
-# LightGBM gère les NaN
 X.columns = clean_feature_names(X.columns)
 
 print("X shape :", X.shape)
@@ -94,7 +105,7 @@ print("y shape :", y.shape)
 
 
 # ============================================================
-# Split test final pour vérifier la performance sauvegardée
+# Split train / test final
 # ============================================================
 
 X_train_full, X_test_final, y_train_full, y_test_final = train_test_split(
@@ -104,6 +115,37 @@ X_train_full, X_test_final, y_train_full, y_test_final = train_test_split(
     random_state=RANDOM_STATE,
     stratify=y,
 )
+
+
+# ============================================================
+# Sauvegarde du jeu de test comme données de production simulées
+# ============================================================
+
+production_test_clients = X_test_final.copy()
+production_test_clients.insert(
+    0,
+    "SK_ID_CURR",
+    train_df.loc[X_test_final.index, "SK_ID_CURR"].values,
+)
+production_test_clients["TARGET"] = y_test_final.values
+
+production_test_clients.to_parquet(
+    PRODUCTION_PARQUET_PATH,
+    index=False,
+)
+
+production_test_clients.to_csv(
+    PRODUCTION_CSV_PATH,
+    index=False,
+)
+
+print("\nDonnées de production simulées sauvegardées.")
+print("Parquet :", PRODUCTION_PARQUET_PATH)
+print("CSV     :", PRODUCTION_CSV_PATH)
+print("Shape   :", production_test_clients.shape)
+
+print("\nExemples de SK_ID_CURR disponibles :")
+print(production_test_clients["SK_ID_CURR"].head(10).tolist())
 
 
 # ============================================================
@@ -158,7 +200,7 @@ print(f"Threshold     : {FINAL_THRESHOLD}")
 
 
 # ============================================================
-# Sauvegarde du modèle
+# Sauvegarde du modèle et des métadonnées
 # ============================================================
 
 joblib.dump(model, MODEL_PATH)
@@ -167,6 +209,7 @@ metadata = {
     "model_name": "LightGBM final scoring model",
     "model_path": str(MODEL_PATH),
     "threshold": FINAL_THRESHOLD,
+    "production_data_path": str(PRODUCTION_PARQUET_PATH),
     "features": list(X.columns),
     "params": params,
     "metrics": {
