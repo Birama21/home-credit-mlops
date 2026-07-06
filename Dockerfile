@@ -51,4 +51,4 @@ EXPOSE 7860
 # En local, si PORT n'est pas défini, l'API démarre sur 8000.
 # ============================================================
 
-CMD ["sh", "-c", "uv run uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uv run uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
