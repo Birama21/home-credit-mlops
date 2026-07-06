@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
-        with :
-          fetch-depth : 0
 
       - name: Installation de Python
         uses: actions/setup-python@v5
@@ -44,9 +42,26 @@ jobs:
           HF_USERNAME: ${{ secrets.HF_USERNAME }}
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
         run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "github-actions"
+          pip install huggingface_hub
 
-          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_SPACE_NAME
+          python - <<EOF
+          from huggingface_hub import HfApi
 
-          git push space HEAD:main --force
+          api = HfApi(token="${HF_TOKEN}")
+
+          api.upload_folder(
+              folder_path=".",
+              repo_id=f"${HF_USERNAME}/${HF_SPACE_NAME}",
+              repo_type="space",
+              allow_patterns=[
+                  "Dockerfile",
+                  "README.md",
+                  "pyproject.toml",
+                  "uv.lock",
+                  "src/**",
+                  "models/lightgbm_final.pkl",
+                  "models/model_metadata.json",
+                  "data/demo/production_demo_clients.csv",
+              ],
+          )
+          EOF
