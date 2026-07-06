@@ -38,10 +38,17 @@ COPY . .
 # Port exposé par FastAPI
 # ============================================================
 
+# ============================================================
+# Port exposé par FastAPI
+# ============================================================
+
 EXPOSE 7860
 
 # ============================================================
 # Lancement de l'API
+#
+# PORT est utilisé automatiquement par Hugging Face.
+# En local, si PORT n'est pas défini, l'API démarre sur 8000.
 # ============================================================
 
-CMD ["uv", "run", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "uv run uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
