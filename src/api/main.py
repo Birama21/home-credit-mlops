@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import re
 
 import joblib
@@ -16,7 +17,12 @@ from pydantic import BaseModel, Field
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 MODEL_PATH = BASE_DIR / "models" / "lightgbm_final.pkl"
-DATA_PATH = BASE_DIR / "data" / "production" / "production_test_clients.csv"
+DATA_PATH = Path(
+    os.getenv(
+        "DATA_PATH",
+        BASE_DIR / "data" / "demo" / "production_demo_clients.csv",
+    )
+)
 
 THRESHOLD = 0.51
 DEFAULT_BATCH_SIZE = 200

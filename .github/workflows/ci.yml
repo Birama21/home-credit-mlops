@@ -1,4 +1,4 @@
-name: CI - Tests API
+name: CI/CD - API Docker
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - develop
 
 jobs:
-  tests:
+  test-build-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,3 +34,17 @@ jobs:
 
       - name: Construction de l'image Docker
         run: docker build -t home-credit-api .
+
+      - name: Déploiement sur Hugging Face Spaces
+        if: github.ref == 'refs/heads/develop'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions"
+
+          git remote add space https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_SPACE_NAME
+
+          git push space HEAD:main --force
