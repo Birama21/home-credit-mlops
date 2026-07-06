@@ -31,3 +31,6 @@ jobs:
 
       - name: Lancement des tests avec couverture
         run: uv run pytest --cov=src --cov-report=term-missing -v
+
+      - name: Construction de l'image Docker
+        run: docker build -t home-credit-api .
