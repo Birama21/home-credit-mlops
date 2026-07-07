@@ -11,7 +11,7 @@ import time
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from src.services.prediction_logger import log_prediction
-
+from src.services.monitoring import get_prediction_stats
 
 # ============================================================
 # Configuration
@@ -258,6 +258,16 @@ def health():
         "threshold": THRESHOLD,
     }
 
+@app.get("/monitoring/stats")
+def monitoring_stats():
+    """
+    Retourne les principales statistiques de monitoring.
+
+    Les statistiques sont calculées directement à partir
+    de la table prediction_logs.
+    """
+
+    return get_prediction_stats()
 
 @app.post("/predict")
 def predict(request: ClientRequest):
