@@ -58,3 +58,4 @@ data/production/
 
 .DS_Store
 Thumbs.db
+.env
