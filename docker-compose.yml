@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: home_credit_postgres
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    container_name: home_credit_api
+    restart: unless-stopped
+
+    depends_on:
+      - postgres
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_HOST: postgres
+      PORT: 7860
+
+    ports:
+      - "8000:7860"
+
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  postgres_data:
