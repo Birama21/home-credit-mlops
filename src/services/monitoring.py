@@ -45,6 +45,7 @@ def get_prediction_stats() -> dict:
 
         avg_latency_ms = (
             session.query(func.avg(PredictionLog.latency_ms))
+            .filter(PredictionLog.status == "success")
             .scalar()
         )
 
