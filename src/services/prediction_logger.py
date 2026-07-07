@@ -1,8 +1,8 @@
 """
 Service d'enregistrement des prédictions dans PostgreSQL.
 
-Ce module permet de sauvegarder chaque prédiction effectuée par l'API
-dans la table prediction_logs. Ces logs serviront ensuite au monitoring.
+Si PostgreSQL n'est pas configuré, par exemple sur GitHub Actions
+ou Hugging Face, le logging est simplement désactivé.
 """
 
 from src.database.database import SessionLocal
@@ -21,7 +21,14 @@ def log_prediction(
 ) -> None:
     """
     Enregistre une prédiction ou une erreur dans PostgreSQL.
+
+    Si PostgreSQL n'est pas disponible, on ne bloque jamais l'API.
     """
+
+    # Cas GitHub Actions / Hugging Face :
+    # aucune connexion PostgreSQL n'est configurée.
+    if SessionLocal is None:
+        return
 
     session = SessionLocal()
 
@@ -41,7 +48,6 @@ def log_prediction(
         session.commit()
 
     except Exception:
-        # On ne bloque jamais l'API si le logging échoue.
         session.rollback()
 
     finally:
