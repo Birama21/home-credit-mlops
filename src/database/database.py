@@ -1,10 +1,9 @@
 """
-Configuration de la connexion à la base de données.
+Configuration de la connexion à PostgreSQL.
 
-Ce module charge les variables d'environnement définies
-dans le fichier .env afin d'éviter de stocker des
-informations sensibles (mot de passe, nom de la base...)
-directement dans le code.
+PostgreSQL est utilisé en local si les variables d'environnement
+sont présentes. Sur GitHub Actions ou Hugging Face, la connexion
+peut être désactivée afin de garder le fallback CSV fonctionnel.
 """
 
 from sqlalchemy import create_engine
@@ -16,33 +15,30 @@ from src.database.config import (
     POSTGRES_DB,
     POSTGRES_USER,
     POSTGRES_PASSWORD,
+    is_postgres_configured,
 )
 
-# Construction de l'URL de connexion PostgreSQL.
-# Le driver "psycopg" est utilisé par SQLAlchemy
-# pour communiquer avec PostgreSQL.
-DATABASE_URL = (
-    f"postgresql+psycopg://"
-    f"{POSTGRES_USER}:{POSTGRES_PASSWORD}"
-    f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
 
-# Création de l'engine SQLAlchemy.
-# L'engine représente la connexion principale
-# entre l'application Python et PostgreSQL.
-engine = create_engine(DATABASE_URL)
-
-# Création d'une fabrique de sessions.
-# Chaque requête vers la base utilisera une nouvelle
-# session afin de garantir une bonne gestion des transactions.
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-)
-
-# Classe de base dont hériteront tous les modèles SQLAlchemy.
-# Les futures tables (clients_demo, prediction_logs, ...)
-# seront définies en héritant de cette classe.
 class Base(DeclarativeBase):
+    """Classe de base des modèles SQLAlchemy."""
     pass
+
+
+DATABASE_URL = None
+engine = None
+SessionLocal = None
+
+if is_postgres_configured():
+    DATABASE_URL = (
+        f"postgresql+psycopg://"
+        f"{POSTGRES_USER}:{POSTGRES_PASSWORD}"
+        f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    )
+
+    engine = create_engine(DATABASE_URL)
+
+    SessionLocal = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
