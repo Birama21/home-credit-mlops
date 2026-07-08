@@ -20,13 +20,11 @@ def log_prediction(
     error_message: str | None = None,
 ) -> None:
     """
-    Enregistre une prédiction ou une erreur dans PostgreSQL.
+    Enregistre une seule prédiction ou une erreur dans PostgreSQL.
 
-    Si PostgreSQL n'est pas disponible, on ne bloque jamais l'API.
+    Cette fonction est utilisée principalement par l'endpoint /predict.
     """
 
-    # Cas GitHub Actions / Hugging Face :
-    # aucune connexion PostgreSQL n'est configurée.
     if SessionLocal is None:
         return
 
@@ -45,6 +43,35 @@ def log_prediction(
         )
 
         session.add(log)
+        session.commit()
+
+    except Exception:
+        session.rollback()
+
+    finally:
+        session.close()
+
+
+def log_predictions_batch(logs: list[dict]) -> None:
+    """
+    Enregistre plusieurs prédictions en une seule transaction PostgreSQL.
+
+    Cette fonction est utilisée par /predict_batch afin d'éviter
+    d'exécuter une requête SQL séparée pour chaque client.
+    """
+
+    if SessionLocal is None or not logs:
+        return
+
+    session = SessionLocal()
+
+    try:
+        prediction_logs = [
+            PredictionLog(**log_data)
+            for log_data in logs
+        ]
+
+        session.add_all(prediction_logs)
         session.commit()
 
     except Exception:

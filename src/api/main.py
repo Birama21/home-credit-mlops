@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from src.services.prediction_logger import log_prediction
 from src.services.monitoring import get_prediction_stats
 from src.services.drift import detect_data_drift
+from src.services.prediction_logger import log_prediction, log_predictions_batch
 
 # ============================================================
 # Configuration
@@ -281,23 +282,45 @@ def monitoring_drift():
 
 @app.post("/predict")
 def predict(request: ClientRequest):
-    """Prédit le risque de défaut pour un client donné."""
+    """Prédit le risque de défaut pour un client donné avec profiling."""
 
     sk_id_curr = request.sk_id_curr
     start_time = time.perf_counter()
+    profiling_ms = {}
 
     try:
+        # Mesure du temps de récupération du client.
+        step_start = time.perf_counter()
         client = get_client_data(sk_id_curr)
+        profiling_ms["get_client_data"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
+        # Mesure du temps de préparation des features.
+        step_start = time.perf_counter()
         features = prepare_features(client)
+        profiling_ms["prepare_features"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
+        # Mesure du temps de prédiction du modèle.
+        step_start = time.perf_counter()
         probability = float(model.predict_proba(features)[0, 1])
+        profiling_ms["model_prediction"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
         prediction, decision = build_decision(probability)
 
+        # Mesure du temps d'écriture du log en base.
+        step_start = time.perf_counter()
+
+        # Latence totale côté API avant sauvegarde du log.
         latency_ms = (time.perf_counter() - start_time) * 1000
 
-        # Sauvegarde la prédiction réussie dans PostgreSQL.
         log_prediction(
             endpoint="/predict",
             sk_id_curr=sk_id_curr,
@@ -308,12 +331,24 @@ def predict(request: ClientRequest):
             status="success",
         )
 
+        profiling_ms["database_logging"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
+
+        # Temps total complet de la fonction.
+        profiling_ms["total"] = round(
+            (time.perf_counter() - start_time) * 1000,
+            2,
+        )
+
         response = {
             "sk_id_curr": int(sk_id_curr),
             "probability_default": round(probability, 6),
             "threshold": THRESHOLD,
             "prediction": prediction,
             "decision": decision,
+            "profiling_ms": profiling_ms,
         }
 
         if "TARGET" in client.columns and pd.notna(client["TARGET"].iloc[0]):
@@ -324,7 +359,6 @@ def predict(request: ClientRequest):
     except HTTPException as exc:
         latency_ms = (time.perf_counter() - start_time) * 1000
 
-        # Sauvegarde l'erreur dans PostgreSQL.
         log_prediction(
             endpoint="/predict",
             sk_id_curr=sk_id_curr,
@@ -348,12 +382,18 @@ def predict_batch(
         description="Nombre de clients à scorer.",
     )
 ):
-    """Prédit le risque de défaut pour les n premiers clients."""
+    """Prédit le risque de défaut pour les n premiers clients avec profiling."""
 
     start_time = time.perf_counter()
+    profiling_ms = {}
 
     try:
+        step_start = time.perf_counter()
         batch = get_batch_data(n_clients)
+        profiling_ms["get_batch_data"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
         if batch.empty:
             raise HTTPException(
@@ -361,11 +401,24 @@ def predict_batch(
                 detail="Aucun client disponible.",
             )
 
+        step_start = time.perf_counter()
         features = prepare_features(batch)
+        profiling_ms["prepare_features"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
+        step_start = time.perf_counter()
         probabilities = model.predict_proba(features)[:, 1]
+        profiling_ms["batch_prediction"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
 
         results = []
+        logs = []
+
+        step_start = time.perf_counter()
 
         for index, probability in enumerate(probabilities):
             row = batch.iloc[index]
@@ -374,15 +427,17 @@ def predict_batch(
 
             latency_ms = (time.perf_counter() - start_time) * 1000
 
-            # Sauvegarde chaque prédiction du batch dans PostgreSQL.
-            log_prediction(
-                endpoint="/predict_batch",
-                sk_id_curr=int(row["SK_ID_CURR"]),
-                probability=float(probability),
-                prediction=prediction,
-                decision=decision,
-                latency_ms=latency_ms,
-                status="success",
+            logs.append(
+                {
+                    "endpoint": "/predict_batch",
+                    "sk_id_curr": int(row["SK_ID_CURR"]),
+                    "probability": float(probability),
+                    "prediction": prediction,
+                    "decision": decision,
+                    "latency_ms": latency_ms,
+                    "status": "success",
+                    "error_message": None,
+                }
             )
 
             result = {
@@ -398,9 +453,22 @@ def predict_batch(
 
             results.append(result)
 
+        log_predictions_batch(logs)
+
+        profiling_ms["database_logging"] = round(
+            (time.perf_counter() - step_start) * 1000,
+            2,
+        )
+
+        profiling_ms["total"] = round(
+            (time.perf_counter() - start_time) * 1000,
+            2,
+        )
+
         return {
             "n_predictions": len(results),
             "threshold": THRESHOLD,
+            "profiling_ms": profiling_ms,
             "predictions": results,
         }
 
