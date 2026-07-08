@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from src.services.prediction_logger import log_prediction
 from src.services.monitoring import get_prediction_stats
+from src.services.drift import detect_data_drift
 
 # ============================================================
 # Configuration
@@ -268,6 +269,15 @@ def monitoring_stats():
     """
 
     return get_prediction_stats()
+
+@app.get("/monitoring/drift")
+def monitoring_drift():
+    """
+    Détecte un éventuel data drift entre les données
+    de référence et les données de production simulée.
+    """
+
+    return detect_data_drift()
 
 @app.post("/predict")
 def predict(request: ClientRequest):

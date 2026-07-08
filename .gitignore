@@ -46,6 +46,13 @@ data/processed/*.csv
 data/processed/*.parquet
 data/production/
 
+# Reference datasets generated automatically
+data/reference/*.parquet
+data/reference/*.csv
+
+# Keep only reference statistics
+!data/reference/reference_stats.json
+
 # ============================================================
 # Pytest
 # ============================================================

@@ -48,6 +48,32 @@ PRODUCTION_DIR.mkdir(parents=True, exist_ok=True)
 PRODUCTION_PARQUET_PATH = PRODUCTION_DIR / "production_test_clients.parquet"
 PRODUCTION_CSV_PATH = PRODUCTION_DIR / "production_test_clients.csv"
 
+# ============================================================
+# Données de référence pour le monitoring du data drift
+# ============================================================
+
+REFERENCE_DIR = BASE_DIR / "data" / "reference"
+REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+
+REFERENCE_PARQUET_PATH = (
+    REFERENCE_DIR / "reference_train_clients.parquet"
+)
+
+REFERENCE_CSV_PATH = (
+    REFERENCE_DIR / "reference_train_clients.csv"
+)
+
+
+REFERENCE_STATS_PATH = REFERENCE_DIR / "reference_stats.json"
+
+DRIFT_FEATURES = [
+    "AMT_INCOME_TOTAL",
+    "AMT_CREDIT",
+    "AMT_ANNUITY",
+    "DAYS_BIRTH",
+    "EXT_SOURCE_2",
+]
+
 RANDOM_STATE = 42
 FINAL_THRESHOLD = 0.51
 
@@ -115,6 +141,55 @@ X_train_full, X_test_final, y_train_full, y_test_final = train_test_split(
     random_state=RANDOM_STATE,
     stratify=y,
 )
+
+# ============================================================
+# Sauvegarde du jeu d'entraînement comme référence
+# pour le monitoring du data drift
+# ============================================================
+
+reference_train_clients = X_train_full.copy()
+
+reference_train_clients.insert(
+    0,
+    "SK_ID_CURR",
+    train_df.loc[X_train_full.index, "SK_ID_CURR"].values,
+)
+
+reference_train_clients["TARGET"] = y_train_full.values
+
+reference_train_clients.to_parquet(
+    REFERENCE_PARQUET_PATH,
+    index=False,
+)
+
+reference_train_clients.to_csv(
+    REFERENCE_CSV_PATH,
+    index=False,
+)
+
+print("\nJeu de référence sauvegardé.")
+print("Parquet :", REFERENCE_PARQUET_PATH)
+print("CSV     :", REFERENCE_CSV_PATH)
+print("Shape   :", reference_train_clients.shape)
+
+# ============================================================
+# Sauvegarde des statistiques de référence pour le data drift
+# ============================================================
+
+reference_stats = {}
+
+for feature in DRIFT_FEATURES:
+    if feature in reference_train_clients.columns:
+        reference_stats[feature] = {
+            "mean": float(reference_train_clients[feature].mean()),
+            "count": int(reference_train_clients[feature].count()),
+        }
+
+with open(REFERENCE_STATS_PATH, "w", encoding="utf-8") as file:
+    json.dump(reference_stats, file, indent=4)
+
+print("\nStatistiques de référence sauvegardées.")
+print("JSON :", REFERENCE_STATS_PATH)
 
 
 # ============================================================

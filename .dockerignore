@@ -12,6 +12,10 @@ data/external/
 data/processed/
 data/production/
 
+# Generated reference datasets
+data/reference/*.parquet
+data/reference/*.csv
+
 notebooks/
 mlruns/
 mlartifacts/
