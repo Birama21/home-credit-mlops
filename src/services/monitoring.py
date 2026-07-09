@@ -49,6 +49,19 @@ def get_prediction_stats() -> dict:
             .scalar()
         )
 
+        last_prediction = (
+            session.query(PredictionLog)
+            .filter(PredictionLog.status == "success")
+            .order_by(PredictionLog.id.desc())
+            .first()
+        )
+
+        last_latency_ms = (
+            last_prediction.latency_ms
+            if last_prediction is not None
+            else 0
+        )
+
         avg_probability = (
             session.query(func.avg(PredictionLog.probability))
             .filter(PredictionLog.status == "success")
@@ -74,6 +87,7 @@ def get_prediction_stats() -> dict:
             "total_errors": total_errors,
             "error_rate": round(error_rate, 4),
             "avg_latency_ms": round(avg_latency_ms or 0, 2),
+            "last_latency_ms": round(last_latency_ms or 0, 2),
             "avg_probability_default": round(avg_probability or 0, 6),
             "risky_clients": risky_clients,
             "non_risky_clients": non_risky_clients,
